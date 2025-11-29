@@ -10,14 +10,27 @@ const DEFAULT_SKIN: PugSkin = {
   imageUrl: null // triggers default drawing code
 };
 
+const UNLOCK_SCORE = 500;
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
   const [skins, setSkins] = useState<PugSkin[]>([DEFAULT_SKIN]);
   const [activeSkinId, setActiveSkinId] = useState<string>('default');
   const [lastScore, setLastScore] = useState<number>(0);
-  const [highScore, setHighScore] = useState<number>(0);
+  
+  // Initialize high score from local storage
+  const [highScore, setHighScore] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('pugly_high_score');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (e) {
+      console.warn('Failed to access local storage', e);
+      return 0;
+    }
+  });
 
   const activeSkin = skins.find(s => s.id === activeSkinId) || DEFAULT_SKIN;
+  const isCreatorUnlocked = highScore >= UNLOCK_SCORE;
 
   const handleStartGame = () => {
     setGameState(GameState.PLAYING);
@@ -27,6 +40,11 @@ const App: React.FC = () => {
     setLastScore(score);
     if (score > highScore) {
       setHighScore(score);
+      try {
+        localStorage.setItem('pugly_high_score', score.toString());
+      } catch (e) {
+        console.warn('Failed to save to local storage', e);
+      }
     }
     setGameState(GameState.GAME_OVER);
   };
@@ -82,13 +100,27 @@ const App: React.FC = () => {
                   </button>
                 ))}
                 
-                {/* Add New Skin Button */}
+                {/* New Skin Button - Locked until score 500 */}
                 <button
-                  onClick={() => setGameState(GameState.SKIN_CREATOR)}
-                  className="aspect-square rounded border-2 border-dashed border-[#81C784] bg-[#1B5E20]/30 hover:bg-[#1B5E20] hover:border-[#FFEB3B] flex flex-col items-center justify-center text-[#81C784] hover:text-[#FFEB3B] transition-colors group"
+                  onClick={() => isCreatorUnlocked && setGameState(GameState.SKIN_CREATOR)}
+                  disabled={!isCreatorUnlocked}
+                  className={`aspect-square rounded border-2 border-dashed flex flex-col items-center justify-center transition-colors group relative overflow-hidden ${
+                    isCreatorUnlocked 
+                    ? 'border-[#81C784] bg-[#1B5E20]/30 hover:bg-[#1B5E20] hover:border-[#FFEB3B] text-[#81C784] hover:text-[#FFEB3B] cursor-pointer'
+                    : 'border-gray-600 bg-black/20 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
-                  <span className="text-3xl mb-1 group-hover:scale-110 transition-transform">+</span>
-                  <span className="text-[10px]">NEW SKIN</span>
+                  {isCreatorUnlocked ? (
+                    <>
+                      <span className="text-3xl mb-1 group-hover:scale-110 transition-transform">+</span>
+                      <span className="text-[10px]">NEW SKIN</span>
+                    </>
+                  ) : (
+                    <>
+                       <div className="text-2xl mb-1">🔒</div>
+                       <span className="text-[8px] text-center px-1">UNLOCK AT {UNLOCK_SCORE} PTS</span>
+                    </>
+                  )}
                 </button>
               </div>
               <div className="mt-4 text-center text-[#FFEB3B] text-xs font-bold">
@@ -127,6 +159,12 @@ const App: React.FC = () => {
             <div className="text-white text-2xl mb-8">
               PARTY POINTS: <span className="text-[#FFEB3B]">{lastScore}</span>
             </div>
+
+            {!isCreatorUnlocked && lastScore < UNLOCK_SCORE && (
+               <div className="text-sm text-[#81C784] mb-6 bg-black/20 p-2 rounded">
+                 Score {UNLOCK_SCORE - lastScore} more to unlock Custom Skins!
+               </div>
+            )}
             
             <div className="flex gap-4 justify-center">
                <button
